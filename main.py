@@ -1,28 +1,49 @@
 import streamlit as st
 import psycopg2
-import os
 
-# الرابط الخاص بك
-DATABASE_URL = "postgresql://neondb_owner:npg_T8zwBuoDEe2U@ep-sparkling-meadow-atb4i0jc-pooler.c-9.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+# الحصول على الرابط من الإعدادات الآمنة (Secrets)
+DATABASE_URL = st.secrets["DATABASE_URL"]
 
 def get_db_connection():
     return psycopg2.connect(DATABASE_URL)
 
-def init_db():
+st.title("🏠 نظام الإدارة العقارية والمقاولات")
+
+# القائمة الجانبية للتنقل
+menu = ["الرئيسية", "إضافة وحدة جديدة", "عرض الوحدات"]
+choice = st.sidebar.selectbox("القائمة", menu)
+
+if choice == "الرئيسية":
+    st.write("مرحباً بك في لوحة تحكم النظام. اختر إجراءً من القائمة الجانبية.")
+
+elif choice == "إضافة وحدة جديدة":
+    st.subheader("إضافة عقار جديد")
+    with st.form("unit_form"):
+        name = st.text_input("اسم الوحدة")
+        location = st.text_input("الموقع")
+        u_type = st.selectbox("نوع الوحدة", ["شقة", "فيلا", "محل تجاري"])
+        price = st.number_input("السعر", min_value=0.0)
+        submit = st.form_submit_button("حفظ الوحدة")
+
+        if submit:
+            conn = get_db_connection()
+            c = conn.cursor()
+            c.execute("INSERT INTO units (unit_name, location, unit_type, price) VALUES (%s, %s, %s, %s)", 
+                      (name, location, u_type, price))
+            conn.commit()
+            conn.close()
+            st.success(f"تم إضافة {name} بنجاح!")
+
+elif choice == "عرض الوحدات":
+    st.subheader("قائمة الوحدات المتاحة")
     conn = get_db_connection()
     c = conn.cursor()
-    # إنشاء الجداول بـ SERIAL بدلاً من AUTOINCREMENT
-    c.execute('''CREATE TABLE IF NOT EXISTS units (id SERIAL PRIMARY KEY, unit_name TEXT, location TEXT, unit_type TEXT, price REAL)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS contracts (id SERIAL PRIMARY KEY, unit_id INTEGER, client_name TEXT, start_date DATE, end_date DATE)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS expenses (id SERIAL PRIMARY KEY, project_id INTEGER, category TEXT, description TEXT, supplier TEXT, amount REAL, expense_date DATE)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS sales (id SERIAL PRIMARY KEY, unit_id INTEGER, buyer_name TEXT, sale_price REAL, paid_amount REAL, remaining_amount REAL, sale_date DATE)''')
-    c.execute('''CREATE TABLE IF NOT EXISTS sales_installments (id SERIAL PRIMARY KEY, sale_id INTEGER, amount REAL, installment_date DATE)''')
-    conn.commit()
-    c.close()
+    c.execute("SELECT * FROM units")
+    data = c.fetchall()
     conn.close()
-
-# تنفيذ التهيئة
-init_db()
-
-st.title("نظام الإدارة العقارية والمقاولات")
-st.write("تم الاتصال بقاعدة البيانات بنجاح وبناء الجداول!")
+    
+    if data:
+        for row in data:
+            st.write(f"🏢 {row[1]} - الموقع: {row[2]} - السعر: {row[4]} ج.م")
+    else:
+        st.write("لا توجد وحدات مضافة بعد.")
