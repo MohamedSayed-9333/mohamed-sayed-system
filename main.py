@@ -91,17 +91,6 @@ elif choice == "إدارة العقارات":
                 conn = get_db_connection(); conn.execute('INSERT INTO units (unit_name, location, unit_type, price) VALUES (?, ?, ?, ?)', (n, l, t, p))
                 conn.commit(); conn.close(); st.rerun()
     with tab2: st.write("صفحة تسجيل الإيجار")
-        df_u = pd.read_sql("SELECT id, unit_name, location FROM units", get_db_connection())
-        if not df_u.empty:
-            df_u['display_name'] = df_u['unit_name'] + " - " + df_u['location']
-            with st.form("c_form"):
-                sel = st.selectbox("الوحدة (الموقع):", df_u['display_name'])
-                u_id = df_u[df_u['display_name'] == sel]['id'].iloc[0]
-                c = st.text_input("المستأجر"); s = st.date_input("البداية"); e = st.date_input("النهاية")
-                if st.form_submit_button("حفظ العقد"):
-                    conn = get_db_connection(); conn.execute('INSERT INTO contracts (unit_id, client_name, start_date, end_date) VALUES (?, ?, ?, ?)', (int(u_id), c, str(s), str(e)))
-                    conn.commit(); conn.close(); st.rerun()
-        else: st.warning("لا توجد وحدات مسجلة.")
     with tab3: st.write("صفحة عرض البيانات")
     with tab4: st.write("صفحة تحصيل الإيجار")
     with tab5: st.write("صفحة عقد البيع")
