@@ -37,7 +37,7 @@ if choice == "الرئيسية":
     
     conn = get_db_connection()
     
-    # 1. تنبيه العقود المنتهية (استخدام CURRENT_DATE بدلاً من date('now'))
+    # 1. تنبيه العقود المنتهية
     with col1:
         st.write("### ⏳ عقود توشك على الانتهاء")
         query_alert = '''SELECT u.unit_name AS "الوحدة", c.client_name AS "المستأجر", c.end_date AS "تاريخ النهاية" 
