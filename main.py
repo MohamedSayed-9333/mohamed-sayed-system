@@ -292,17 +292,100 @@ elif choice == "إدارة العقارات":
         conn.close()
 
 elif choice == "أرشيف المقاولات":
-    st.write("أرشيف المقاولات (يمكنك إضافة كود المقاولات هنا)")
-
-elif choice == "أرشيف المقاولات":
     st.subheader("أرشيف أعمال المقاولات")
     tab1, tab2, tab3 = st.tabs(["إضافة مشروع", "تسجيل مصروفات", "التقرير المالي"])
+    
     with tab1:
         with st.form("p_form"):
             n = st.text_input("اسم المشروع"); l = st.text_input("الموقع")
             if st.form_submit_button("إنشاء"):
                 conn = get_db_connection(); cur = conn.cursor()
                 cur.execute("INSERT INTO projects (project_name, location) VALUES (%s, %s)", (n, l))
-                conn.commit(); conn.close(); st.rerun()
-    with tab2: st.write("صفحة تسجيل المصروفات")
-    with tab3: st.write("صفحة التقرير المالي")
+                conn.commit(); conn.close(); st.success("تم!"); st.rerun()
+
+    with tab2:
+        df_p = pd.read_sql("SELECT id, project_name FROM projects", get_db_connection())
+        if not df_p.empty:
+            with st.form("e_form"):
+                sel = st.selectbox("🔍 ابحث عن المشروع:", df_p['project_name'])
+                p_id = int(df_p[df_p['project_name'] == sel]['id'].iloc[0])
+                cat = st.selectbox("البند", ["كهرباء", "سباكة", "دهانات", "عمالة"])
+                desc = st.text_input("الوصف"); sup = st.text_input("المورد"); amt = st.number_input("المبلغ", min_value=0.0)
+                if st.form_submit_button("تسجيل المصروف"):
+                    conn = get_db_connection(); cur = conn.cursor()
+                    cur.execute("INSERT INTO expenses (project_id, category, description, supplier, amount, expense_date) VALUES (%s, %s, %s, %s, %s, CURRENT_DATE)", (p_id, cat, desc, sup, amt))
+                    conn.commit(); conn.close(); st.success("تم التسجيل!"); st.rerun()
+            
+            st.write("---")
+            search_query = st.text_input("🔍 بحث سريع في مصروفات المشروع المختار:", key="search_tab2")
+            df_exp = pd.read_sql(f'SELECT category AS "البند", description AS "الوصف", supplier AS "المورد", amount AS "المبلغ", expense_date AS "التاريخ" FROM expenses WHERE project_id = {p_id}', get_db_connection())
+            if not df_exp.empty: st.table(df_exp)
+        else: st.warning("يجب إضافة مشروع أولاً.")
+    with tab3:
+        st.subheader("🔍 إدارة وتصفية المصروفات")
+        col1, col2 = st.columns(2)
+        with col1:
+            df_p = pd.read_sql("SELECT id, project_name FROM projects", get_db_connection())
+            sel_p = st.selectbox("اختر المشروع:", ["الكل"] + df_p['project_name'].tolist())
+            start_date = st.date_input("من تاريخ:", value=pd.to_datetime("2026-01-01"))
+            end_date = st.date_input("إلى تاريخ:", value=pd.to_datetime("2026-12-31"))
+        with col2:
+            cat = st.selectbox("اختر البند:", ["الكل", "كهرباء", "سباكة", "دهانات", "عمالة"])
+            search_query = st.text_input("بحث بالوصف أو المورد:")
+            min_amt = st.number_input("أقل مبلغ:", value=0.0)
+        
+        # 2. بناء استعلام SQL الديناميكي
+        sql = """SELECT e.id, e.category, e.description, e.supplier, e.amount, e.expense_date, p.project_name 
+                 FROM expenses e JOIN projects p ON e.project_id = p.id WHERE 1=1"""
+        
+        if sel_p != "الكل":
+            p_id = int(df_p[df_p['project_name'] == sel_p]['id'].iloc[0])
+            sql += f" AND e.project_id = {p_id}"
+        
+        sql += f" AND e.expense_date::date BETWEEN '{start_date}' AND '{end_date}'"
+        if cat != "الكل": sql += f" AND e.category = '{cat}'"
+        if min_amt > 0: sql += f" AND e.amount >= {min_amt}"
+        
+        df_exp = pd.read_sql(sql, get_db_connection())
+        
+        # 3. تطبيق بحث الوصف والمورد
+        if search_query:
+            df_exp = df_exp[df_exp['description'].str.contains(search_query, case=False, na=False) | 
+                            df_exp['supplier'].str.contains(search_query, case=False, na=False)]
+            
+        # 4. عرض النتائج مع تعريب العناوين
+        if not df_exp.empty:
+            df_display = df_exp.rename(columns={
+                'project_name': 'اسم المشروع', 'category': 'البند',
+                'description': 'الوصف', 'supplier': 'المورد',
+                'amount': 'المبلغ', 'expense_date': 'تاريخ المصروف'
+            })
+            
+            st.write(f"### 💰 إجمالي التكلفة: {df_exp['amount'].sum():,.2f} ج.م")
+            st.table(df_display[['اسم المشروع', 'البند', 'الوصف', 'المورد', 'المبلغ', 'تاريخ المصروف']])
+            
+            # قسم التعديل والحذف
+            st.write("---")
+            st.write("### 🛠 تعديل أو حذف مصروف")
+            selected_id = st.selectbox("اختر رقم المصروف للتعامل معه:", df_exp['id'].tolist())
+            record = df_exp[df_exp['id'] == selected_id].iloc[0]
+            
+            with st.form("edit_form"):
+                n_cat = st.selectbox("البند", ["كهرباء", "سباكة", "دهانات", "عمالة"], 
+                                     index=["كهرباء", "سباكة", "دهانات", "عمالة"].index(record['category']))
+                n_desc = st.text_input("الوصف", value=record['description'])
+                n_sup = st.text_input("المورد", value=record['supplier'])
+                n_amt = st.number_input("المبلغ", value=float(record['amount']))
+                
+                c1, c2 = st.columns(2)
+                if c1.form_submit_button("💾 حفظ التعديل"):
+                    conn = get_db_connection(); cur = conn.cursor()
+                    cur.execute("UPDATE expenses SET category=%s, description=%s, supplier=%s, amount=%s WHERE id=%s", 
+                                (n_cat, n_desc, n_sup, n_amt, int(selected_id)))
+                    conn.commit(); conn.close(); st.rerun()
+                if c2.form_submit_button("🗑 حذف المصروف"):
+                    conn = get_db_connection(); cur = conn.cursor()
+                    cur.execute("DELETE FROM expenses WHERE id=%s", (int(selected_id),))
+                    conn.commit(); conn.close(); st.rerun()
+        else:
+            st.info("لا توجد مصروفات تطابق الفلتر الحالي.")
