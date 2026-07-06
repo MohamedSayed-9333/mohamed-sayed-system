@@ -84,12 +84,16 @@ if choice == "الرئيسية":
 
 elif choice == "إدارة العقارات":
     tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs(["إضافة وحدة", "تسجيل إيجار", "عرض البيانات", "تحصيل إيجار", "تسجيل عقد بيع", "سداد أقساط", "إحصائيات العقارات"])
+    
     with tab1:
         with st.form("u_form"):
             n = st.text_input("اسم الوحدة"); l = st.text_input("الموقع"); t = st.selectbox("النوع", ["سكني", "تجاري", "إداري", "طبي"]); p = st.number_input("السعر")
             if st.form_submit_button("حفظ"):
-                conn = get_db_connection(); conn.execute('INSERT INTO units (unit_name, location, unit_type, price) VALUES (?, ?, ?, ?)', (n, l, t, p))
+                conn = get_db_connection()
+                cur = conn.cursor()  # تعديل: إنشاء المؤشر
+                cur.execute('INSERT INTO units (unit_name, location, unit_type, price) VALUES (%s, %s, %s, %s)', (n, l, t, p))
                 conn.commit(); conn.close(); st.rerun()
+
     with tab2:
         st.subheader("تسجيل عقد إيجار جديد")
         df_u = pd.read_sql("SELECT id, unit_name, location FROM units", get_db_connection())
@@ -100,7 +104,8 @@ elif choice == "إدارة العقارات":
                 u_id = df_u[df_u['display_name'] == sel]['id'].iloc[0]
                 c = st.text_input("المستأجر"); s = st.date_input("البداية"); e = st.date_input("النهاية")
                 if st.form_submit_button("حفظ العقد"):
-                    conn = get_db_connection(); cur = conn.cursor()
+                    conn = get_db_connection()
+                    cur = conn.cursor()  # تعديل: إنشاء المؤشر
                     cur.execute('INSERT INTO contracts (unit_id, client_name, start_date, end_date) VALUES (%s, %s, %s, %s)', (int(u_id), c, str(s), str(e)))
                     conn.commit(); conn.close(); st.success("تم حفظ العقد بنجاح!"); st.rerun()
         else: 
