@@ -10,7 +10,7 @@ def get_db_connection():
 def check_password():
     """Returns True if the user had the correct password."""
     def password_entered():
-        if st.session_state["password"] == "123456": # يمكنك تغيير كلمة المرور هنا
+        if st.session_state["password"] == "01009333819": # يمكنك تغيير كلمة المرور هنا
             st.session_state["password_correct"] = True
         else:
             st.session_state["password_correct"] = False
