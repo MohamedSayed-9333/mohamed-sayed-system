@@ -1,7 +1,27 @@
 import streamlit as st
 import psycopg2
 import pandas as pd
+import streamlit as st
 
+with st.sidebar:
+    st.subheader("📝 مسودة سريعة (Scratchpad)")
+    st.info("اكتب هنا ملاحظاتك أو انسخ البيانات لضمان عدم ضياعها عند انقطاع الإنترنت.")
+    
+    # حفظ النص في session_state ليظل موجوداً حتى لو حدث Rerun
+    if "scratchpad" not in st.session_state:
+        st.session_state["scratchpad"] = ""
+    
+    st.text_area(
+        "مساحة الكتابة:",
+        value=st.session_state["scratchpad"],
+        height=200,
+        key="scratchpad_input",
+        on_change=lambda: st.session_state.update({"scratchpad": st.session_state["scratchpad_input"]})
+    )
+    
+    if st.button("مسح المسودة"):
+        st.session_state["scratchpad"] = ""
+        st.rerun()
 # 1. الاتصال بقاعدة بيانات Neon السحابية
 def get_db_connection():
     # يتم سحب الرابط من إعدادات Secrets في Streamlit Cloud
