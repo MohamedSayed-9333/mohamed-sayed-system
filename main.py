@@ -6,7 +6,28 @@ import pandas as pd
 def get_db_connection():
     # يتم سحب الرابط من إعدادات Secrets في Streamlit Cloud
     return psycopg2.connect(st.secrets["DATABASE_URL"])
+# في بداية ملف main.py مباشرة بعد الاستيراد وقبل أي شيء آخر
+def check_password():
+    """Returns True if the user had the correct password."""
+    def password_entered():
+        if st.session_state["password"] == "123456": # يمكنك تغيير كلمة المرور هنا
+            st.session_state["password_correct"] = True
+        else:
+            st.session_state["password_correct"] = False
 
+    if "password_correct" not in st.session_state:
+        st.text_input("كلمة المرور:", type="password", on_change=password_entered, key="password")
+        return False
+    elif not st.session_state["password_correct"]:
+        st.text_input("كلمة المرور:", type="password", on_change=password_entered, key="password")
+        st.error("كلمة المرور غير صحيحة")
+        return False
+    else:
+        return True
+
+# استدعاء الدالة
+if not check_password():
+    st.stop() # إيقاف التطبيق إذا لم تكن كلمة المرور صحيحة
 # 2. تهيئة قاعدة البيانات (هيكل موحد لكل النظام)
 def init_db():
     conn = get_db_connection()
